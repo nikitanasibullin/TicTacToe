@@ -20,8 +20,8 @@ std::atomic<bool> timeover_flag(false);
 #pragma comment(lib, "ws2_32.lib")
 
 
-void timerThread(SOCKET client_sock) {
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+void timerThread(SOCKET client_sock, int time) {
+    std::this_thread::sleep_for(std::chrono::seconds(time));
     if (!timeout_flag) {
         std::string timeout_message = "bad";
         send(client_sock, timeout_message.c_str(), timeout_message.length(), 0);
@@ -57,6 +57,7 @@ int main(int argc, char const* argv[]) {
         return -1;
     }
 
+    int time = 100;
     WSADATA wsa;
     int res = WSAStartup(MAKEWORD(2, 2), &wsa);
     handleError(res != 0, "Failed. Error Code : ", fout);
@@ -83,7 +84,7 @@ int main(int argc, char const* argv[]) {
 
     if (buffer[0] == '1') {
         std::cout << "It's a game of tic-tac-toe!\nDuring your turn, choose a cell to go to : e.g.‘1a’." << std::endl;
-        std::cout << "Remember that your move time is limited to ten seconds.\nIf you move to an occupied cell, you automatically lose.\n\nEnter the password to start the game : ";
+        std::cout << "Remember that your move time is limited to ten seconds.\nIf you move to an occupied cell, you automatically lose.\nYou mark by \"o\"\n\nEnter a capitalised name in Latin letters and password with a space to start the game : ";
         std::getline(std::cin, password);
         logTime(fout);
         fout << "User  input: " << password << std::endl;
@@ -104,6 +105,9 @@ int main(int argc, char const* argv[]) {
             WSACleanup();
             return 0;
         }
+        char* newBuffer = buffer + 1; // Сдвигаем указатель на следующий символ
+        // Преобразуем оставшуюся часть строки в int
+        time = std::atoi(newBuffer);
 
         std::cout << "  0 1 2\na _|_|_\nb _|_|_\nc  | | \n";
         std::cout << "Your turn:";
@@ -112,7 +116,7 @@ int main(int argc, char const* argv[]) {
     }
     else {
         std::cout << "It's a game of tic-tac-toe!\nDuring your turn, choose a cell to go to : e.g.‘1a’." << std::endl;
-        std::cout << "Remember that your move time is limited to ten seconds.\nIf you move to an occupied cell, you automatically lose.\n\nEnter the password to start the game : ";
+        std::cout << "Remember that your move time is limited to ten seconds.\nIf you move to an occupied cell, you automatically lose.\nYou mark by \"x\"\n\nEnter a capitalised name in Latin letters and password with a space to start the game : ";
         std::getline(std::cin, password);
         system("cls");
         std::cout << "Please, wait for your opponent. The game will start soon!";
@@ -133,11 +137,14 @@ int main(int argc, char const* argv[]) {
         fout << "User  output: " << buffer << std::endl;
 
         if (buffer[0] != '1') { //если не совпали
-            fout<< "The password by one of the clients is wrong. Session is closed!";
+            fout << "The password by one of the clients is wrong. Session is closed!";
             std::cout << "The password by one of the clients is wrong. Session is closed!";
             WSACleanup();
             return 0;
         }
+        char* newBuffer = buffer + 1; // Сдвигаем указатель на следующий символ
+        // Преобразуем оставшуюся часть строки в int
+        time = std::atoi(newBuffer);
         memset(buffer, 0, sizeof(buffer)); // Очистка буфера для следующего сообщения
 
         std::cout << "  0 1 2\na _|_|_\nb _|_|_\nc  | | \n"; //пустая таблица
@@ -145,6 +152,15 @@ int main(int argc, char const* argv[]) {
 
 
         valread = recv(client_sock, buffer, 1024, 0);
+        if (buffer[strlen(buffer) - 1] == '!') { //если пришел "!" на конце,значит у оппонента истекло время.
+            system("cls");
+            logTime(fout);
+            fout << "game is over";
+            std::cout << "Your opponent's time is over!\nYou win!\n";
+            closesocket(client_sock);
+            WSACleanup();
+            return 0;
+        }
         logTime(fout);
         fout << "User  output: " << buffer << std::endl;
         handleError(valread <= 0, "Connection closed by server.\n", fout);
@@ -158,7 +174,7 @@ int main(int argc, char const* argv[]) {
     while (true) {
         timeout_flag = false; // Сброс флага таймаута после каждого кода
         // Запуск таймера в отдельном потоке
-        std::thread timer(timerThread, client_sock);
+        std::thread timer(timerThread, client_sock, time);
 
         std::getline(std::cin, message);
         if (!timeover_flag) {
@@ -202,6 +218,15 @@ int main(int argc, char const* argv[]) {
                 WSACleanup();
                 return 0;
             }
+            else if (buffer[strlen(buffer) - 1] == 'w') { //пришло сообщение: ничья
+                std::cout << buffer;
+                timer.join();
+                logTime(fout);
+                fout << "game is over";
+                closesocket(client_sock);
+                WSACleanup();
+                return 0;
+            }
 
             std::cout << "Please, wait for your opponent\n";
 
@@ -211,7 +236,6 @@ int main(int argc, char const* argv[]) {
             fout << "User  output: " << buffer << std::endl;
 
             system("cls");
-            std::cout << buffer;
 
             if (buffer[strlen(buffer) - 1] == '!') { //если пришел "!" на конце,значит время истекло у оппонента.
                 timer.join();
@@ -233,6 +257,7 @@ int main(int argc, char const* argv[]) {
                 return 0;
             }
             else if (buffer[strlen(buffer) - 1] == 'p') { //пришло сообщение о том, что в чужой ход закрасили непустую клетку
+                std::cout << buffer;
                 std::cout << "You win!\n";
                 timer.join();
                 logTime(fout);
@@ -241,7 +266,17 @@ int main(int argc, char const* argv[]) {
                 WSACleanup();
                 return 0;
             }
+            else if (buffer[strlen(buffer) - 1] == 'w') { //пришло сообщение: ничья
+                std::cout << buffer;
+                timer.join();
+                logTime(fout);
+                fout << "game is over";
+                closesocket(client_sock);
+                WSACleanup();
+                return 0;
+            }
 
+            std::cout << buffer << std::endl;
 
 
             std::cout << "\nYour turn:";
