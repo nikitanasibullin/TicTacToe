@@ -6,10 +6,10 @@
 #include <ctime>
 #include <iomanip>
 #include <time.h>
+#include <sstream>
 
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
 const int PORT = 2024;
-const std::string PASSWORD = "qwerty";
 
 const char to_TT(int x) {  //для вывода таблицы
     if (x == 1) {
@@ -94,6 +94,10 @@ void AnalyseTicTac(std::vector<int>& TicTac, std::string& rule, std::string& out
         output += "\nThe Game is over.";
         fout << "Player " << (turn + 1) << " wins!\n";
     }
+    if (TicTac[0] != -1 and TicTac[1] != -1 and TicTac[2] != -1 and TicTac[3] != -1 and TicTac[4] != -1 and TicTac[5] != -1
+        and TicTac[6] != -1 and TicTac[7] != -1 and TicTac[8] != -1) {
+        output += "\nThe Game is over. The draw";
+    }
 }
 
 void handleError(bool err, const char* msg, std::ofstream& fout) {
@@ -104,7 +108,40 @@ void handleError(bool err, const char* msg, std::ofstream& fout) {
 }
 
 int main(int argc, char const* argv[]) {
+
     srand(time(0));
+
+    std::ifstream infile("config.txt"); // Открываем файл для чтения
+    std::string line;
+    std::string PASSWORD;
+    int time = 0;
+
+    // Проверяем, что файл успешно открыт
+    if (!infile.is_open()) {
+        std::cerr << "Cannot find the configuration file!" << std::endl;
+        return 1;
+    }
+
+    // Читаем файл построчно
+    while (std::getline(infile, line)) {
+        std::istringstream iss(line);
+        std::string key, equal_sign;
+
+        // Разделяем строку на ключ и значение
+        if (iss >> key >> equal_sign) {
+            if (equal_sign == "=") {
+                if (key == "password") {
+                    iss >> PASSWORD; // Считываем пароль
+                }
+                else if (key == "time") {
+                    iss >> time; // Считываем время
+                }
+            }
+        }
+    }
+
+    infile.close(); // Закрываем файл
+
     std::ofstream fout;
     fout.open("log.txt");
     if (!fout) {
@@ -175,25 +212,33 @@ int main(int argc, char const* argv[]) {
     send(new_socket2, output.c_str(), output.size(), 0);
 
     bool correct_pass = true;
-    recv(new_socket1, buffer, 1024, 0); // сначала принимаем пароль от первого пользователя
-    if (buffer != PASSWORD) {
+    recv(new_socket1, buffer, 1024, 0); // сначала принимаем Имя и пароль от первого пользователя
+    std::istringstream inf1(buffer); // Создаем поток из строки
+    std::string name;
+    std::string password;
+
+    // Считываем значения из потока
+    inf1 >> name >> password;
+    if (password != PASSWORD or !(name[0]>='A' and name[0]<='Z')) {
         correct_pass = false;
     }
     memset(buffer, 0, sizeof(buffer));
     send(new_socket2, output.c_str(), output.size(), 0); // второму пользователю отправляем ноль
-    recv(new_socket2, buffer, 1024, 0); // отправляет пароль серверу
-    if (buffer != PASSWORD) {
+    recv(new_socket2, buffer, 1024, 0); // принимаем пароль и имя от второго
+    std::istringstream inf2(buffer);
+    inf2 >> name >> password;
+    if (password != PASSWORD or !(name[0] >= 'A' and name[0] <= 'Z')) {
         correct_pass = false;
     }
     memset(buffer, 0, sizeof(buffer));
 
-    if (!correct_pass) { // если хоть у кого-то пароль не совпал
+    if (!correct_pass) { // если хоть у кого-то пароль не совпал или некорректное имя
         send(new_socket1, output.c_str(), output.size(), 0);
         send(new_socket2, output.c_str(), output.size(), 0);
         return 0;
     }
     else {
-        output = "1"; // Если всё верно, то отправляем единичку
+        output = "1"+std::to_string(time); // Если всё верно, то отправляем единичку
         send(new_socket1, output.c_str(), output.size(), 0);
         send(new_socket2, output.c_str(), output.size(), 0);
     }
