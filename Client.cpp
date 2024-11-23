@@ -10,10 +10,11 @@
 #include <time.h>
 #include <fstream>
 #include <iomanip>
+#include <atomic>
 
 
 const int PORT = 2024;
-PCWSTR IP = _T("192.168.0.107"); //айпи сервера
+LPCSTR IP = ("192.168.0.107"); //айпи сервера
 std::atomic<bool> timeout_flag(false); // Флаги для индикации таймаута
 std::atomic<bool> timeover_flag(false);
 
@@ -70,7 +71,7 @@ int main(int argc, char const* argv[]) {
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(PORT);
-    InetPton(AF_INET, (IP), &servaddr.sin_addr.s_addr);
+    InetPtonA(AF_INET, (IP), &servaddr.sin_addr.s_addr);
 
     int status = connect(client_sock, (struct sockaddr*)&servaddr, sizeof(servaddr));
     handleError(status == SOCKET_ERROR, "Could not connect to server : ", fout);
