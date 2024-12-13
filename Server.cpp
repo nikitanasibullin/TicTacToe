@@ -9,7 +9,7 @@
 #include <sstream>
 
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
-const int PORT = 2024;
+int PORT = 2024;
 
 const char to_TT(int x) {  //для вывода таблицы
     if (x == 1) {
@@ -110,8 +110,8 @@ void handleError(bool err, const char* msg, std::ofstream& fout) {
 int main(int argc, char const* argv[]) {
 
     srand(time(0));
-
-    std::ifstream infile("config.txt"); // Открываем файл для чтения
+    if (argc < 2) { return -1; }
+    std::ifstream infile(argv[1]); // Открываем файл для чтения
     std::string line;
     std::string PASSWORD;
     int time = 0;
@@ -123,7 +123,8 @@ int main(int argc, char const* argv[]) {
     }
 
     // Читаем файл построчно
-    while (std::getline(infile, line)) {
+    for (size_t i = 0; i < 2;++i) {
+        std::getline(infile, line);
         std::istringstream iss(line);
         std::string key, equal_sign;
 
@@ -139,16 +140,22 @@ int main(int argc, char const* argv[]) {
             }
         }
     }
+    //PORT root
+    std::string strPort;
+    std::getline(infile, strPort);
+    PORT = std::stoi(strPort);
+    std::string logRoot;
+    std::getline(infile, logRoot);
 
     infile.close(); // Закрываем файл
 
     std::ofstream fout;
-    fout.open("log.txt");
+    fout.open(logRoot);
     if (!fout) {
         std::cout << "Cannot open the file" << std::endl;
         return -1;
     }
-
+    //std::cout << "Now data is:\t" + std::to_string(PORT) + '\t' + logRoot << '\n';
     // Initialize winsock
     logTime(fout);
     fout << "Initialising Winsock...\n";

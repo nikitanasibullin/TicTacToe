@@ -13,8 +13,8 @@
 #include <atomic>
 
 
-const int PORT = 2024;
-LPCSTR IP = ("192.168.0.107"); //айпи сервера
+int PORT = 2024;
+LPCSTR IP = ("127.0.0.1"); //айпи сервера
 std::atomic<bool> timeout_flag(false); // Флаги для индикации таймаута
 std::atomic<bool> timeover_flag(false);
 
@@ -52,12 +52,31 @@ void handleError(bool err, const char* msg, std::ofstream& fout) {
 }
 
 int main(int argc, char const* argv[]) {
-    std::ofstream fout("log.txt", std::ios::app); // Открываем файл в режиме добавления
+    if (argc < 2) { return -1; };
+    std::ifstream konfig(argv[1]);//Открываем конфигурационный файл
+    if (!konfig) {
+        std::cout << "Cannot open configuration file" << std::endl;
+        return -1;
+    }
+    //IP PORT root
+    std::string strIp;
+    std::getline(konfig, strIp);
+    IP = (strIp.c_str());
+    std::string strPort;
+    std::getline(konfig, strPort);
+    PORT = std::stoi(strPort);
+    std::string logRoot;
+    std::getline(konfig, logRoot);
+    konfig.close();
+    std::ofstream fout(logRoot, std::ios::app); // Открываем лог файл в режиме добавления
     if (!fout) {
-        std::cout << "Cannot open the file" << std::endl;
+        std::cout << "Cannot open log file" << std::endl;
+        logTime(fout);
+        fout << "Cannot open log file" << std::endl;
         return -1;
     }
 
+    //std::cout << "Now data is:\t"<<IP<<'\t' << std::to_string(PORT) <<'\t'+logRoot<<'\n';
     int time = 100;
     WSADATA wsa;
     int res = WSAStartup(MAKEWORD(2, 2), &wsa);
@@ -294,7 +313,8 @@ int main(int argc, char const* argv[]) {
         timer.join();
     }
 
-
+    //закрывае файлы 
+    
     // Закрытие соединения 
     closesocket(client_sock);
     WSACleanup();
